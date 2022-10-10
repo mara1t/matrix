@@ -1,0 +1,6 @@
+#!/bin/bash
+for file in ./test/test_arr/*
+do
+echo ${file}
+time ./build/matrix < $file
+done

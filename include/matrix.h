@@ -4,28 +4,30 @@
 
 namespace matrixes {
 
-const double eps = 1e-10;
+const double eps = 1e-5;
 
 template<typename T>
 class matrix
 {
 private:
     int n_ = 0;
-    T *arr_ = nullptr;
+    double *arr_ = nullptr;
     bool changed_determ_sign = 0;
+    bool diagonalized_ = 0;
 public:
-    matrix(const int n) : arr_{new T[n*n]}, n_{n} {}
+    matrix(const int n) : arr_{new double[n*n]}, n_{n} {}
     matrix(const int, std::vector<T>);
     ~matrix() {delete[] arr_;};
 
     std::vector<T> get_data() const;
     void init_fields(std::vector<T>);
     int get_size() const { return n_; } 
-    T get_det();
-    bool is_roughly_zero(const T &) const;
+    bool is_diagonalized() const { return diagonalized_; }
+    double get_det();
+    bool is_roughly_zero(const double&) const;
     void swap_rows(int, int);
     void swap_columns(const int, const int);
-    T simple_determ() const;
+    double simple_determ() const;
     void get_matrix() const;
 
     //T operator [] (const int n, const int m);
@@ -35,7 +37,7 @@ template<typename T>
 matrix<T>::matrix(const int n, std::vector<T> vec)
 {
     n_ = n;
-    arr_ = new T[n * n];
+    arr_ = new double[n * n];
     init_fields(vec);
 }
 
@@ -54,17 +56,20 @@ void matrix<T>::init_fields(std::vector<T> buf)
 {
     for (int rows = 0; rows < n_; rows++)
         for (int columns = 0; columns < n_; columns++)
-            *(arr_ + columns + n_ * rows) = buf[columns + n_ * rows];
+            *(arr_ + columns + n_ * rows) = (double) buf[columns + n_ * rows];
 }
 
 template<typename T>
-T matrix<T>::get_det()
+double matrix<T>::get_det()
 {
+    if (diagonalized_)
+        return simple_determ();
+    
     int main_row;
-    T tmp_elem;
+    double tmp_elem;
 
     for (int columns = 0; columns < n_ - 1; columns++) {
-        main_row = 0;
+        main_row = columns;
         tmp_elem = *(arr_ + columns + n_ * main_row);
 
         while (main_row < n_) {
@@ -79,7 +84,7 @@ T matrix<T>::get_det()
         swap_rows(main_row, columns);
 
         for (int rows = columns + 1; rows < n_; rows++) {
-            T div_koef = *(arr_ + columns + n_ * rows) / *(arr_ + columns + n_ * columns);
+            double div_koef = *(arr_ + columns + n_ * rows) / *(arr_ + columns + n_ * columns);
 
             if (!is_roughly_zero(*(arr_ + columns + rows * n_))) {
                 for (int tmp_columns = columns; tmp_columns < n_; tmp_columns++) {
@@ -89,11 +94,13 @@ T matrix<T>::get_det()
         }
     }
 
+    diagonalized_ = 1;
+
     return simple_determ();
 }
 
 template<typename T>
-bool matrix<T>::is_roughly_zero(const T &elem) const
+bool matrix<T>::is_roughly_zero(const double &elem) const
 {   
     return fabs(elem) < eps;
 }
@@ -105,7 +112,7 @@ void matrix<T>::swap_rows(int n1, int n2)
         changed_determ_sign = !changed_determ_sign;
 
     for (int columns = 0; columns < n_; columns++) {
-        T swap_elem = *(arr_ + columns + n_ * n1);
+        double swap_elem = *(arr_ + columns + n_ * n1);
         *(arr_ + columns + n_ * n1) = *(arr_ + columns + n_ * n2);
         *(arr_ + columns + n_ * n2) = swap_elem;
     }
@@ -119,16 +126,16 @@ void matrix<T>::swap_columns(const int m1, const int m2)
         changed_determ_sign = !changed_determ_sign;
 
     for (int rows = 0; rows < n_; rows++) {
-        T swap_elem = *(arr_ + m1 + n_ * rows);
+        double swap_elem = *(arr_ + m1 + n_ * rows);
         *(arr_ + m1 + n_ * rows) = *(arr_ + m2 + n_ * rows);
         *(arr_ + m2 + n_ * rows) = swap_elem;
     }
 }
 
 template<typename T>
-T matrix<T>::simple_determ() const
+double matrix<T>::simple_determ() const
 {   
-    T det = 1;
+    double det = 1;
     for (int columns = 0; columns < n_; columns++) {
         if (is_roughly_zero(*(arr_ + columns + n_ * columns)))
             return 0;

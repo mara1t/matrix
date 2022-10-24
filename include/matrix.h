@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <stdio.h>
+#include <cstring>
 
 namespace matrixes {
 
@@ -11,13 +13,16 @@ class matrix
 {
 private:
     int n_ = 0;
-    double *arr_ = nullptr;
-    bool changed_determ_sign = 0;
+    T *arr_ = nullptr;
+    double *double_arr_ = nullptr;
+    bool changed_determ_sign = false;
     bool diagonalized_ = 0;
+    bool changed_ = true;
+    double det_ = NAN;
 public:
-    matrix(const int n) : arr_{new double[n*n]}, n_{n} {}
+    matrix(const int n) : arr_{new T[n*n]}, double_arr_{new double[n*n]}, n_{n} {}
     matrix(const int, std::vector<T>);
-    ~matrix() {delete[] arr_;};
+    ~matrix() {delete[] arr_; delete[] double_arr_;};
 
     std::vector<T> get_data() const;
     void init_fields(std::vector<T>);
@@ -30,14 +35,19 @@ public:
     double simple_determ() const;
     void get_matrix() const;
 
+    matrix operator = (const matrix&);
+    matrix operator = (const matrix &&);
     //T operator [] (const int n, const int m);
 };
 
 template<typename T>
 matrix<T>::matrix(const int n, std::vector<T> vec)
 {
+    if (n <= 0) 
+        return;
     n_ = n;
-    arr_ = new double[n * n];
+    arr_ = new T[n * n];
+    double_arr_ = new double[n * n];
     init_fields(vec);
 }
 
@@ -55,13 +65,18 @@ template<typename T>
 void matrix<T>::init_fields(std::vector<T> buf)
 {
     for (int rows = 0; rows < n_; rows++)
-        for (int columns = 0; columns < n_; columns++)
-            *(arr_ + columns + n_ * rows) = (double) buf[columns + n_ * rows];
+        for (int columns = 0; columns < n_; columns++) {
+            arr_[columns + n_ * rows] = buf[columns + n_ * rows];
+            double_arr_[columns + n_ * rows] = static_cast<double>(buf[columns + n_ * rows]);
+        }
 }
 
 template<typename T>
 double matrix<T>::get_det()
 {
+    if (!changed_) 
+        return det_;
+
     if (diagonalized_)
         return simple_determ();
     
@@ -70,10 +85,10 @@ double matrix<T>::get_det()
 
     for (int columns = 0; columns < n_ - 1; columns++) {
         main_row = columns;
-        tmp_elem = *(arr_ + columns + n_ * main_row);
+        tmp_elem = double_arr_[columns + n_ * main_row];
 
         while (main_row < n_) {
-            tmp_elem = *(arr_ + columns + n_ * main_row);
+            tmp_elem = double_arr_[columns + n_ * main_row];
             if (!is_roughly_zero(tmp_elem))
                 break;
             main_row++;
@@ -84,11 +99,11 @@ double matrix<T>::get_det()
         swap_rows(main_row, columns);
 
         for (int rows = columns + 1; rows < n_; rows++) {
-            double div_koef = *(arr_ + columns + n_ * rows) / *(arr_ + columns + n_ * columns);
+            double div_koef = double_arr_[columns + n_ * rows] / double_arr_[columns + n_ * columns];
 
             if (!is_roughly_zero(*(arr_ + columns + rows * n_))) {
                 for (int tmp_columns = columns; tmp_columns < n_; tmp_columns++) {
-                    *(arr_ + tmp_columns + n_ * rows) -= *(arr_ + tmp_columns + n_ * columns) * div_koef;
+                    double_arr_[tmp_columns + n_ * rows] -= double_arr_[tmp_columns + n_ * columns] * div_koef;
                 }
             }
         }
@@ -112,9 +127,9 @@ void matrix<T>::swap_rows(int n1, int n2)
         changed_determ_sign = !changed_determ_sign;
 
     for (int columns = 0; columns < n_; columns++) {
-        double swap_elem = *(arr_ + columns + n_ * n1);
-        *(arr_ + columns + n_ * n1) = *(arr_ + columns + n_ * n2);
-        *(arr_ + columns + n_ * n2) = swap_elem;
+        double swap_elem = double_arr_[columns + n_ * n1];
+        double_arr_[columns + n_ * n1] = double_arr_[columns + n_ * n2];
+        double_arr_[columns + n_ * n2] = swap_elem;
     }
     
 }
@@ -126,9 +141,9 @@ void matrix<T>::swap_columns(const int m1, const int m2)
         changed_determ_sign = !changed_determ_sign;
 
     for (int rows = 0; rows < n_; rows++) {
-        double swap_elem = *(arr_ + m1 + n_ * rows);
-        *(arr_ + m1 + n_ * rows) = *(arr_ + m2 + n_ * rows);
-        *(arr_ + m2 + n_ * rows) = swap_elem;
+        double swap_elem = double_arr_[m1 + n_ * rows];
+        double_arr_[m1 + n_ * rows] = double_arr_[m2 + n_ * rows];
+        double_arr_[m2 + n_ * rows] = swap_elem;
     }
 }
 
@@ -137,10 +152,10 @@ double matrix<T>::simple_determ() const
 {   
     double det = 1;
     for (int columns = 0; columns < n_; columns++) {
-        if (is_roughly_zero(*(arr_ + columns + n_ * columns)))
+        if (is_roughly_zero(double_arr_[columns + n_ * columns]))
             return 0;
 
-        det *= *(arr_ + columns + n_ * columns);
+        det *= double_arr_[columns + n_ * columns];
     }
 
     if (changed_determ_sign) 
@@ -162,7 +177,29 @@ void matrix<T>::get_matrix() const
     std::cout << std::endl;
 }
 
+template<typename T>
+matrix<T> matrix<T>::operator = (const matrix& another_matrix)
+{
+    if (&another_matrix == this)
+        return *this;
 
+    if (another_matrix.n_ != n_) {
+        delete [] another_matrix.arr_;
+        delete [] another_matrix.double_arr_;
+        another_matrix.arr_ = new T[n_];
+        another_matrix.double_arr_ = new double[n_];
+
+        another_matrix.n_ = n_;
+        std::memcpy(another_matrix.arr_, arr_, sizeof(T) * n_);
+        std::memcpy(another_matrix.double_arr_, double_arr_, sizeof(double) * n_);
+        another_matrix.det_ = det_;
+        another_matrix.changed_ = changed_;
+        another_matrix.changed_determ_sign = changed_determ_sign;
+        another_matrix.diagonalized_ = diagonalized_;
+
+        return *this;
+    }
+}
 
 
 

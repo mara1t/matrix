@@ -10,7 +10,7 @@ set (SOURCES src/main.cpp)
 add_executable (${PROJECT_NAME} ${SOURCES})
 
 
-add_compile_options (-g -Werror -Wall -Wextra -Wpedantic)
+add_compile_options (-Werror -Wall -Wextra -Wpedantic)
 
 target_include_directories (${PROJECT_NAME} PRIVATE include)
 

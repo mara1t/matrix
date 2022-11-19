@@ -7,6 +7,9 @@
 
 namespace matrixes {
 
+template<typename toT, typename fromT>
+toT static_cast_func(const fromT& x) { return static_cast<toT>(x); }
+
 const double eps = 1e-5;
 
 template<typename T>
@@ -72,11 +75,8 @@ matrix<T>::matrix(const matrix&& another_matrix)
 template<typename T>
 void matrix<T>::init_fields(const std::vector<T> &buf)
 {
-    for (int rows = 0; rows < n_; rows++)
-        for (int columns = 0; columns < n_; columns++)
-            arr_[columns + n_ * rows] = buf[columns + n_ * rows];
+    std::copy(buf.begin(), buf.end(), arr_);
 }
-
 
 // measuring determinant without any changing in matrix
 template<typename T>
@@ -90,9 +90,7 @@ double matrix<T>::get_det()
 
     double *double_arr = new double[n_ * n_];
      
-    for (int rows = 0; rows < n_; rows++)
-        for (int columns = 0; columns < n_; columns++)
-            double_arr[columns + n_ * rows] = static_cast<double>(arr_[columns + n_ * rows]);
+    std::transform(arr_, arr_ + n_ * n_, double_arr, static_cast_func<double, T>);
 
     for (int columns = 0; columns < n_ - 1; columns++) {
         main_row = columns;
@@ -202,11 +200,13 @@ matrix<T> matrix<T>::operator = (const matrix&& another_matrix)
 
     n_ = another_matrix.n_;
     arr_ = another_matrix.arr_;
-    another_matrix.arr_ = nullptr;
     det_ = another_matrix.det_;
     changed_ = another_matrix.changed_;
     changed_determ_sign_ = another_matrix.changed_determ_sign_;
-
+    
+    another_matrix.arr_ = nullptr;
+    another_matrix.n_ = 0;
+    
     return *this;   
 }
 
